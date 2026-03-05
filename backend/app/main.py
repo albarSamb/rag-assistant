@@ -5,6 +5,7 @@ from contextlib import asynccontextmanager
 import os
 
 from app.config import settings
+from app.routers import auth, health
 
 
 @asynccontextmanager
@@ -31,11 +32,15 @@ app = FastAPI(
 # CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.CORS_ORIGINS,
+    allow_origins=settings.cors_origins_list,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Register routers
+app.include_router(auth.router, prefix="/api")
+app.include_router(health.router, prefix="/api")
 
 
 @app.get("/")
