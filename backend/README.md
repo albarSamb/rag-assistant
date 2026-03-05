@@ -26,6 +26,7 @@ cp .env.example .env
 
 Avant de lancer l'API, vous pouvez tester le pipeline RAG complet :
 
+### Test automatique avec document de test
 ```bash
 python test_rag_pipeline.py
 ```
@@ -35,6 +36,22 @@ Ce script va :
 - Le traiter (parsing → chunking → embedding → stockage)
 - Effectuer des requêtes de test
 - Afficher les résultats avec scores de similarité
+
+### Test avec votre propre document
+```bash
+python quick_test.py path/to/your/document.pdf
+```
+
+Formats supportés : PDF, Markdown (.md), TXT, DOCX
+
+Exemple :
+```bash
+# Créer un fichier test
+echo "# Test\n\nCeci est un test." > test.md
+
+# Tester
+python quick_test.py test.md
+```
 
 ## Lancer l'API
 
