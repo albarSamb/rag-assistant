@@ -157,19 +157,19 @@ Learn more at: https://fastapi.tiangolo.com
 def main():
     """Run the end-to-end test."""
     print("=" * 70)
-    print("🚀 RAG PIPELINE END-TO-END TEST")
+    print("RAG PIPELINE END-TO-END TEST")
     print("=" * 70)
     
     # Create test document
-    print("\n📝 Creating test document...")
+    print("\nCreating test document...")
     test_file = create_test_markdown()
     test_filename = Path(test_file).name
-    print(f"✓ Created: {test_filename}")
+    print(f"Created: {test_filename}")
     
     # Initialize pipeline
-    print("\n🔧 Initializing RAG pipeline...")
+    print("\nInitializing RAG pipeline...")
     pipeline = create_rag_pipeline()
-    print("✓ Pipeline ready")
+    print("Pipeline ready")
     
     # Test user
     user_id = "test_user_123"
@@ -177,7 +177,7 @@ def main():
     
     try:
         # Process document
-        print(f"\n📚 Processing document...")
+        print(f"\n[*] Processing document...")
         result = pipeline.process_document(
             file_path=test_file,
             mime_type="text/markdown",
@@ -187,7 +187,7 @@ def main():
         )
         
         if result["success"]:
-            print(f"✓ Document processed successfully!")
+            print(f"[OK] Document processed successfully!")
             print(f"  - Chunks created: {result['chunk_count']}")
             print(f"  - Embedding dimension: {result['embedding_dimension']}")
         else:
@@ -195,7 +195,7 @@ def main():
             return
         
         # Get stats
-        print(f"\n📊 Collection stats:")
+        print(f"\n[*] Collection stats:")
         stats = pipeline.get_stats(user_id)
         print(f"  - Total chunks: {stats['chunk_count']}")
         
@@ -207,13 +207,13 @@ def main():
         ]
         
         print("\n" + "=" * 70)
-        print("🔍 TESTING QUERIES")
+        print("TESTING QUERIES")
         print("=" * 70)
         
         for i, question in enumerate(test_questions, 1):
-            print(f"\n{'─' * 70}")
+            print(f"\n{'-' * 70}")
             print(f"Question {i}: {question}")
-            print(f"{'─' * 70}")
+            print(f"{'-' * 70}")
             
             query_result = pipeline.query(
                 user_id=user_id,
@@ -222,7 +222,7 @@ def main():
             )
             
             if query_result["results"]:
-                print(f"\n📌 Found {query_result['result_count']} relevant chunks:\n")
+                print(f"\n[+] Found {query_result['result_count']} relevant chunks:\n")
                 
                 for j, res in enumerate(query_result["results"], 1):
                     similarity = res["similarity"]
@@ -233,32 +233,32 @@ def main():
                     print(f"     {chunk_preview}\n")
                 
                 # Show context that would be sent to LLM
-                print(f"\n💬 Context for LLM (preview):")
+                print(f"\n[*] Context for LLM (preview):")
                 context_preview = query_result["context"][:500]
                 print(f"{context_preview}...\n")
             else:
-                print("✗ No results found")
+                print("[!] No results found")
         
         # Clean up
         print("\n" + "=" * 70)
-        print("🧹 CLEANUP")
+        print("CLEANUP")
         print("=" * 70)
         
         print(f"\nDeleting document chunks...")
         pipeline.delete_document(user_id, document_id)
-        print("✓ Chunks deleted")
+        print("[OK] Chunks deleted")
         
         final_stats = pipeline.get_stats(user_id)
-        print(f"✓ Final chunk count: {final_stats['chunk_count']}")
+        print(f"[OK] Final chunk count: {final_stats['chunk_count']}")
         
     finally:
         # Remove test file
         if os.path.exists(test_file):
             os.unlink(test_file)
-            print(f"✓ Removed test file: {test_filename}")
+            print(f"[OK] Removed test file: {test_filename}")
     
     print("\n" + "=" * 70)
-    print("✅ TEST COMPLETED SUCCESSFULLY!")
+    print("[SUCCESS] TEST COMPLETED SUCCESSFULLY!")
     print("=" * 70)
 
 

@@ -13,12 +13,12 @@ async def lifespan(app: FastAPI):
     # Startup
     os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
     os.makedirs(settings.CHROMA_PATH, exist_ok=True)
-    print("✅ Application started")
+    print("[OK] Application started")
     
     yield
     
     # Shutdown
-    print("👋 Application shutting down")
+    print("[SHUTDOWN] Application shutting down")
 
 
 app = FastAPI(

@@ -1,13 +1,13 @@
 # FastAPI & Server
-fastapi==0.109.0
-uvicorn[standard]==0.27.0
-python-multipart==0.0.6
-pydantic==2.5.3
-pydantic-settings==2.1.0
+fastapi>=0.109.0
+uvicorn[standard]>=0.27.0
+python-multipart>=0.0.6
+pydantic>=2.10.0
+pydantic-settings>=2.7.0
 
 # Database
 sqlalchemy==2.0.25
-asyncpg==0.29.0
+asyncpg>=0.31.0
 alembic==1.13.1
 
 # Auth & Security
@@ -16,15 +16,15 @@ passlib[bcrypt]==1.7.4
 bcrypt==4.1.2
 
 # RAG & ML
-sentence-transformers==2.3.1
-chromadb==0.4.22
-torch==2.1.2
-numpy==1.26.3
+sentence-transformers>=2.3.1
+chromadb>=0.4.22
+torch>=2.6.0
+numpy>=1.24.0
 
 # Document Processing
 PyPDF2==3.0.1
 pdfplumber==0.10.4
-python-markdown==3.5.2
+markdown>=3.5
 python-docx==1.1.0
 
 # LLM
