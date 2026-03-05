@@ -18,7 +18,7 @@ bcrypt==4.1.2
 # RAG & ML
 sentence-transformers==2.3.1
 chromadb==0.4.22
-torch==2.1.2
+torch==2.8.0
 numpy==1.26.3
 
 # Document Processing
