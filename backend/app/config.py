@@ -24,6 +24,11 @@ class Settings(BaseSettings):
     UPLOAD_DIR: str = "./uploads"
     MAX_FILE_SIZE: int = 10485760  # 10MB
     
+    @property
+    def uploads_dir(self) -> str:
+        """Get uploads directory path."""
+        return self.UPLOAD_DIR
+    
     # ChromaDB
     CHROMA_PATH: str = "./chroma_data"
     

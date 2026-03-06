@@ -1,11 +1,15 @@
 """User model."""
 from sqlalchemy import String, DateTime, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from typing import List
+from typing import List, TYPE_CHECKING
 import uuid
 from datetime import datetime
 
 from app.database import Base
+
+if TYPE_CHECKING:
+    from app.models.document import Document
+    from app.models.conversation import Conversation
 
 
 class User(Base):
@@ -16,8 +20,7 @@ class User(Base):
     # Primary Key
     id: Mapped[uuid.UUID] = mapped_column(
         primary_key=True,
-        default=uuid.uuid4,
-        server_default=func.gen_random_uuid()
+        default=uuid.uuid4
     )
     
     # Authentication

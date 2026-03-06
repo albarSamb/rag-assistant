@@ -19,8 +19,7 @@ class Document(Base):
     # Primary Key
     id: Mapped[uuid.UUID] = mapped_column(
         primary_key=True,
-        default=uuid.uuid4,
-        server_default=func.gen_random_uuid()
+        default=uuid.uuid4
     )
     
     # Foreign Keys

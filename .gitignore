@@ -213,3 +213,10 @@ uploads/
 backend/.env
 frontend/.env
 context & archi projet.md
+
+# Frontend build
+frontend/dist/
+frontend/node_modules/
+
+# ML models cache
+.cache/
