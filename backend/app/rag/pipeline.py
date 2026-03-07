@@ -106,11 +106,17 @@ class RAGPipeline:
             # Step 4: Store in vector database
             chunk_ids = [f"{document_id}_chunk_{i}" for i in range(len(chunks))]
             chunk_metadatas = [chunk.metadata for chunk in chunks]
-            
-            # Add chunk index to metadata
+
+            # Add chunk index to metadata and sanitize values for ChromaDB
+            # ChromaDB only accepts str, int, float, bool — no None or complex types
             for i, meta in enumerate(chunk_metadatas):
                 meta["chunk_index"] = i
                 meta["chunk_total"] = len(chunks)
+                for key in list(meta.keys()):
+                    if meta[key] is None:
+                        del meta[key]
+                    elif not isinstance(meta[key], (str, int, float, bool)):
+                        meta[key] = str(meta[key])
             
             self.retriever.add_chunks(
                 user_id=user_id,

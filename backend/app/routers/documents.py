@@ -63,10 +63,14 @@ async def process_document_task(document_id: str, user_id: str, file_path: str, 
                 document_id=document_id,
                 user_id=user_id
             )
-            
-            # Update status to completed
-            document.processing_status = "completed"
-            document.chunk_count = result.get("chunk_count", 0)
+
+            # Check if pipeline succeeded
+            if result.get("success"):
+                document.processing_status = "completed"
+                document.chunk_count = result.get("chunk_count", 0)
+            else:
+                document.processing_status = "failed"
+                document.error_message = result.get("error", "Unknown processing error")
             await db.commit()
             
         except Exception as e:

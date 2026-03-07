@@ -89,18 +89,16 @@ class DocumentParser:
             "author": None
         }
         
+        # Try PyPDF2 first (faster)
         try:
-            # Try PyPDF2 first (faster)
             with open(file_path, 'rb') as file:
                 pdf_reader = PyPDF2.PdfReader(file)
                 metadata["pages"] = len(pdf_reader.pages)
-                
-                # Extract metadata
+
                 if pdf_reader.metadata:
                     metadata["title"] = pdf_reader.metadata.get('/Title', None)
                     metadata["author"] = pdf_reader.metadata.get('/Author', None)
-                
-                # Extract text from each page
+
                 for page_num, page in enumerate(pdf_reader.pages, 1):
                     try:
                         page_text = page.extract_text()
@@ -108,24 +106,26 @@ class DocumentParser:
                             text_parts.append(f"--- Page {page_num} ---\n{page_text}")
                     except Exception as e:
                         logger.warning(f"Could not extract text from page {page_num}: {e}")
-            
-            # If PyPDF2 extraction was poor, try pdfplumber
-            if len("".join(text_parts).strip()) < 100 and metadata["pages"] > 0:
-                logger.info("PyPDF2 extraction yielded little text, trying pdfplumber...")
-                text_parts = []
-                
+        except Exception as e:
+            logger.warning(f"PyPDF2 failed for {file_path}: {e}, trying pdfplumber...")
+
+        # Fallback to pdfplumber if PyPDF2 failed or extracted little text
+        if len("".join(text_parts).strip()) < 100:
+            logger.info("Trying pdfplumber for text extraction...")
+            text_parts = []
+            try:
                 with pdfplumber.open(file_path) as pdf:
+                    metadata["pages"] = len(pdf.pages)
                     for page_num, page in enumerate(pdf.pages, 1):
                         try:
                             page_text = page.extract_text()
                             if page_text and page_text.strip():
                                 text_parts.append(f"--- Page {page_num} ---\n{page_text}")
                         except Exception as e:
-                            logger.warning(f"Could not extract text from page {page_num}: {e}")
-        
-        except Exception as e:
-            logger.error(f"Error parsing PDF {file_path}: {e}")
-            raise
+                            logger.warning(f"pdfplumber: Could not extract page {page_num}: {e}")
+            except Exception as e:
+                logger.error(f"pdfplumber also failed for {file_path}: {e}")
+                raise ValueError(f"Could not parse PDF: both PyPDF2 and pdfplumber failed")
         
         full_text = "\n\n".join(text_parts)
         
