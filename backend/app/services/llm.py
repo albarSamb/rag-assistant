@@ -125,7 +125,8 @@ CONTEXT FROM DOCUMENTATION:
         messages = self._build_messages(question, context_chunks, conversation_history)
 
         try:
-            async with httpx.AsyncClient(timeout=60) as client:
+            timeout = httpx.Timeout(10.0, read=300.0)
+            async with httpx.AsyncClient(timeout=timeout) as client:
                 async with client.stream(
                     "POST",
                     GROQ_API_URL,
