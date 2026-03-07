@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { ref } from 'vue'
+import { ref, reactive } from 'vue'
 import api from '../services/api'
 
 export const useChatStore = defineStore('chat', () => {
@@ -11,14 +11,11 @@ export const useChatStore = defineStore('chat', () => {
   const error = ref(null)
 
   async function fetchConversations() {
-    loading.value = true
     try {
       const { data } = await api.get('/chat/')
       conversations.value = data.conversations
     } catch (e) {
       error.value = e.response?.data?.detail || 'Failed to load conversations'
-    } finally {
-      loading.value = false
     }
   }
 
@@ -52,24 +49,23 @@ export const useChatStore = defineStore('chat', () => {
     if (!currentConversation.value) return
 
     // Add user message to UI immediately
-    const userMsg = {
+    messages.value.push(reactive({
       id: crypto.randomUUID(),
       role: 'user',
       content,
       sources: [],
       created_at: new Date().toISOString(),
-    }
-    messages.value.push(userMsg)
+    }))
 
-    // Prepare assistant placeholder
-    const assistantMsg = {
+    // Prepare assistant placeholder (reactive so mutations trigger re-renders)
+    const assistantMsg = reactive({
       id: crypto.randomUUID(),
       role: 'assistant',
       content: '',
       sources: [],
       created_at: new Date().toISOString(),
       isStreaming: true,
-    }
+    })
     messages.value.push(assistantMsg)
     streaming.value = true
 

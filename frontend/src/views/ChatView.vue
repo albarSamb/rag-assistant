@@ -19,12 +19,17 @@ const conversationId = computed(() => route.params.id)
 
 onMounted(() => {
   docs.fetchDocuments()
+  chat.fetchConversations()
 })
 
 watch(conversationId, async (id) => {
+  selectedDocFilter.value = null
   if (id) {
     await chat.selectConversation(id)
     scrollToBottom()
+  } else {
+    chat.currentConversation = null
+    chat.messages = []
   }
 }, { immediate: true })
 

@@ -8,7 +8,7 @@ import uuid
 import json
 from datetime import datetime
 
-from app.database import get_db
+from app.database import get_db, AsyncSessionLocal
 from app.models.user import User
 from app.models.conversation import Conversation
 from app.models.message import Message
@@ -133,20 +133,26 @@ async def get_conversation(
         )
     )
     conversation = result.scalar_one_or_none()
-    
+
     if not conversation:
         raise NotFoundException("Conversation not found")
-    
-    # Load messages
+
+    # Load messages separately to avoid sync lazy-load on async session
     messages_result = await db.execute(
         select(Message)
         .where(Message.conversation_id == conversation_id)
         .order_by(Message.created_at.asc())
     )
-    messages = messages_result.scalars().all()
-    
-    conversation.messages = messages
-    return conversation
+    msgs = messages_result.scalars().all()
+
+    return ConversationResponse(
+        id=conversation.id,
+        user_id=conversation.user_id,
+        title=conversation.title,
+        created_at=conversation.created_at,
+        updated_at=conversation.updated_at,
+        messages=msgs,
+    )
 
 
 @router.get("/{conversation_id}/messages", response_model=list[MessageResponse])
@@ -216,119 +222,131 @@ async def send_message(
         )
     )
     conversation = conv_result.scalar_one_or_none()
-    
+
     if not conversation:
         raise NotFoundException("Conversation not found")
-    
-    # Save user message
-    user_message = Message(
-        conversation_id=conversation_id,
-        role="user",
-        content=message_data.content,
-        sources=[]
-    )
-    db.add(user_message)
-    await db.commit()
-    
-    # Stream response
+
+    # Capture values needed in the stream (db session will be closed after return)
+    user_id = str(current_user.id)
+    question = message_data.content
+    doc_filter = str(message_data.document_filter) if message_data.document_filter else None
+
+    # Stream response — uses its own db session since FastAPI closes the
+    # dependency session before the StreamingResponse generator runs
     async def generate_stream() -> AsyncGenerator[str, None]:
         """Generate SSE stream with RAG + LLM response."""
-        try:
-            # Step 1: Send event indicating start
-            yield await format_sse_message({"event": "start", "message": "Processing query..."})
-            
-            # Step 2: RAG retrieval
-            yield await format_sse_message({"event": "retrieval", "message": "Searching documents..."})
-            
-            pipeline = RAGPipeline()
-            
-            # Build filter if document specified
-            filter_metadata = None
-            if message_data.document_filter:
-                filter_metadata = {"document_id": str(message_data.document_filter)}
-            
-            # Query RAG pipeline
-            rag_result = pipeline.query(
-                user_id=str(current_user.id),
-                question=message_data.content,
-                document_filter=str(message_data.document_filter) if message_data.document_filter else None,
-                top_k=5
-            )
-            
-            context_chunks = rag_result.get("results", [])
-            
-            # Send sources info
-            sources_info = [
-                {
-                    "content": chunk.get("content", "")[:200] + "...",
-                    "metadata": chunk.get("metadata", {}),
-                    "score": chunk.get("score", 0.0)
-                }
-                for chunk in context_chunks
-            ]
-            
-            yield await format_sse_message({
-                "event": "sources",
-                "count": len(context_chunks),
-                "sources": sources_info
-            })
-            
-            # Step 3: Get conversation history
-            history_result = await db.execute(
-                select(Message)
-                .where(Message.conversation_id == conversation_id)
-                .order_by(Message.created_at.desc())
-                .limit(10)
-            )
-            history_messages = history_result.scalars().all()
-            conversation_history = [
-                {"role": msg.role, "content": msg.content}
-                for msg in reversed(history_messages)
-            ]
-            
-            # Step 4: Generate response with LLM
-            yield await format_sse_message({"event": "generating", "message": "Generating response..."})
-            
-            llm_service = get_llm_service()
-            full_response = ""
-            
-            async for chunk in llm_service.generate_response(
-                question=message_data.content,
-                context_chunks=context_chunks,
-                conversation_history=conversation_history
-            ):
-                full_response += chunk
+        async with AsyncSessionLocal() as stream_db:
+            try:
+                # Save user message
+                user_message = Message(
+                    conversation_id=conversation_id,
+                    role="user",
+                    content=question,
+                    sources=[]
+                )
+                stream_db.add(user_message)
+                await stream_db.commit()
+
+                # Step 1: Send event indicating start
+                yield await format_sse_message({"event": "start", "message": "Processing query..."})
+
+                # Step 2: RAG retrieval
+                yield await format_sse_message({"event": "retrieval", "message": "Searching documents..."})
+
+                pipeline = RAGPipeline()
+
+                # Query RAG pipeline
+                rag_result = pipeline.query(
+                    user_id=user_id,
+                    question=question,
+                    document_filter=doc_filter,
+                    top_k=5
+                )
+
+                context_chunks = rag_result.get("results", [])
+
+                # Normalize chunk format: pipeline returns "text", LLM expects "content"
+                for chunk in context_chunks:
+                    if "text" in chunk and "content" not in chunk:
+                        chunk["content"] = chunk["text"]
+
+                # Send sources info
+                sources_info = [
+                    {
+                        "content": chunk.get("content", chunk.get("text", ""))[:200] + "...",
+                        "metadata": chunk.get("metadata", {}),
+                        "score": chunk.get("similarity", 0.0)
+                    }
+                    for chunk in context_chunks
+                ]
+
                 yield await format_sse_message({
-                    "event": "token",
-                    "content": chunk
+                    "event": "sources",
+                    "count": len(context_chunks),
+                    "sources": sources_info
                 })
-            
-            # Step 5: Save assistant message
-            assistant_message = Message(
-                conversation_id=conversation_id,
-                role="assistant",
-                content=full_response,
-                sources=sources_info
-            )
-            db.add(assistant_message)
-            
-            # Update conversation timestamp
-            conversation.updated_at = datetime.utcnow()
-            
-            await db.commit()
-            
-            # Send completion event
-            yield await format_sse_message({
-                "event": "done",
-                "message_id": str(assistant_message.id)
-            })
-            
-        except Exception as e:
-            # Send error event
-            yield await format_sse_message({
-                "event": "error",
-                "error": str(e)
-            })
+
+                # Step 3: Get conversation history
+                history_result = await stream_db.execute(
+                    select(Message)
+                    .where(Message.conversation_id == conversation_id)
+                    .order_by(Message.created_at.desc())
+                    .limit(10)
+                )
+                history_messages = history_result.scalars().all()
+                conversation_history = [
+                    {"role": msg.role, "content": msg.content}
+                    for msg in reversed(history_messages)
+                ]
+
+                # Step 4: Generate response with LLM
+                yield await format_sse_message({"event": "generating", "message": "Generating response..."})
+
+                llm_service = get_llm_service()
+                full_response = ""
+
+                async for chunk in llm_service.generate_response(
+                    question=question,
+                    context_chunks=context_chunks,
+                    conversation_history=conversation_history
+                ):
+                    full_response += chunk
+                    yield await format_sse_message({
+                        "event": "token",
+                        "content": chunk
+                    })
+
+                # Step 5: Save assistant message
+                assistant_message = Message(
+                    conversation_id=conversation_id,
+                    role="assistant",
+                    content=full_response,
+                    sources=sources_info
+                )
+                stream_db.add(assistant_message)
+
+                # Update conversation timestamp
+                conv_result2 = await stream_db.execute(
+                    select(Conversation).where(Conversation.id == conversation_id)
+                )
+                conv = conv_result2.scalar_one_or_none()
+                if conv:
+                    conv.updated_at = datetime.utcnow()
+
+                await stream_db.commit()
+
+                # Send completion event
+                yield await format_sse_message({
+                    "event": "done",
+                    "message_id": str(assistant_message.id)
+                })
+
+            except Exception as e:
+                # Send error event
+                yield await format_sse_message({
+                    "event": "error",
+                    "error": str(e)
+                })
     
     return StreamingResponse(
         generate_stream(),
