@@ -14,10 +14,14 @@ async def lifespan(app: FastAPI):
     # Startup
     os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
     os.makedirs(settings.CHROMA_PATH, exist_ok=True)
-    print("[OK] Application started")
-    
+
+    # Auto-create tables in dev mode
+    from app.database import init_db
+    await init_db()
+    print("[OK] Application started (tables initialized)")
+
     yield
-    
+
     # Shutdown
     print("[SHUTDOWN] Application shutting down")
 

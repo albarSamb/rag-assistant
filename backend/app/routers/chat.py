@@ -15,6 +15,7 @@ from app.models.message import Message
 from app.models.document import Document
 from app.schemas.chat import (
     ConversationCreate,
+    ConversationSummary,
     ConversationResponse,
     ConversationListResponse,
     MessageCreate,
@@ -44,7 +45,7 @@ async def format_sse_message(data: dict) -> str:
     return f"data: {json.dumps(data)}\n\n"
 
 
-@router.post("/", response_model=ConversationResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/", response_model=ConversationSummary, status_code=status.HTTP_201_CREATED)
 async def create_conversation(
     conversation_data: ConversationCreate,
     current_user: CurrentUser = None,

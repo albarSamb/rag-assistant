@@ -36,20 +36,24 @@ class ConversationCreate(ConversationBase):
     pass
 
 
-class ConversationResponse(ConversationBase):
-    """Schema for conversation response."""
+class ConversationSummary(ConversationBase):
+    """Schema for conversation without messages (list/create)."""
     id: uuid.UUID
     user_id: uuid.UUID
     created_at: datetime
     updated_at: datetime
-    messages: list[MessageResponse] = []
-    
+
     model_config = ConfigDict(from_attributes=True)
+
+
+class ConversationResponse(ConversationSummary):
+    """Schema for conversation with messages."""
+    messages: list[MessageResponse] = []
 
 
 class ConversationListResponse(BaseModel):
     """Schema for list of conversations."""
-    conversations: list[ConversationResponse]
+    conversations: list[ConversationSummary]
     total: int
 
 
